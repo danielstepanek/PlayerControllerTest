@@ -1226,6 +1226,7 @@ GameObject:
   - component: {fileID: 1078424102}
   - component: {fileID: 1078424103}
   - component: {fileID: 1078424104}
+  - component: {fileID: 1078424105}
   m_Layer: 2
   m_Name: RF_Joint_1
   m_TagString: Untagged
@@ -1317,6 +1318,19 @@ MonoBehaviour:
   defaultLocalRotation: {x: 0, y: 0, z: 0, w: 1}
   limit: 44
   twistLimit: 180
+--- !u!114 &1078424105
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1078424101}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eca4e72489e1a7049bfd19e43e2d4936, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  legs: []
 --- !u!1 &1080047434
 GameObject:
   m_ObjectHideFlags: 0
@@ -1838,7 +1852,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1892873236}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.5, y: 0, z: 0}
+  m_LocalPosition: {x: 0.784, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 508724832}
@@ -1862,8 +1876,8 @@ MonoBehaviour:
   axis: {x: 0, y: 0, z: 1}
   defaultLocalRotation: {x: -0, y: -0, z: -0, w: 1}
   useLimits: 1
-  min: -180
-  max: 54.250793
+  min: -179.7
+  max: 10
   zeroAxisDisplayOffset: 0
 --- !u!1 &1902906384
 GameObject:
