@@ -17,7 +17,6 @@ public class PlayerController : MonoBehaviour
     [SerializeField] float maxAcceleration, maxSpeed;
 
     [SerializeField, Range(0f, 90f)] float maxGroundAngle = 25f;
-    [SerializeField] GameObject lookPoint;
     float minGroundDotProduct;
 
     Vector3 contactNormal;
@@ -104,11 +103,6 @@ public class PlayerController : MonoBehaviour
 		{
             CancelYVelocity();
         }
-
-
-
-        Vector3 targetPosition = new Vector3(lookPoint.transform.position.x, transform.position.y, lookPoint.transform.position.z);
-        transform.LookAt(targetPosition, Vector3.up);
     }
 
 	private void CancelYVelocity()
