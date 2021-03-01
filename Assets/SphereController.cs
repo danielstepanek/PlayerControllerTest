@@ -31,6 +31,9 @@ public class SphereController : MonoBehaviour
 	[SerializeField]
 	Transform playerInputSpace = default;
 
+	[SerializeField, Range(90, 180)]
+	float maxClimbAngle = 140f;
+
 	Vector3 upAxis, rightAxis, forwardAxis;
 
 	int jumpPhase;
@@ -38,14 +41,17 @@ public class SphereController : MonoBehaviour
 
 	bool desiredJump;
 
-	Vector3 velocity, desiredVelocity;
-	Rigidbody body;
+	Vector3 velocity, desiredVelocity, connectionVelocity;
+	Rigidbody body, connectedBody, previousConnectedBody;
 
-	float minGroundDotProduct, minStairsDotProduct;
+	float minGroundDotProduct, minStairsDotProduct, minClimbDotProduct;
 	Vector3 contactNormal, steepNormal;
 	int groundContactCount, steepContactCount;
 	bool OnGround => groundContactCount > 0;
 	bool OnSteep => steepContactCount > 0;
+
+	Vector3 connectionWorldPosition, connectionLocalPosition;
+
 	float GetMinDot(int layer)
 	{
 		return (stairsMask & (1 << layer)) == 0 ?
@@ -55,6 +61,7 @@ public class SphereController : MonoBehaviour
 	{
 		minGroundDotProduct = Mathf.Cos(maxGroundAngle * Mathf.Deg2Rad);
 		minStairsDotProduct = Mathf.Cos(maxStairsAngle * Mathf.Deg2Rad);
+		minClimbDotProduct = Mathf.Cos(maxClimbAngle * Mathf.Deg2Rad);
 	}
 
 	void Awake()
@@ -112,7 +119,9 @@ public class SphereController : MonoBehaviour
 	void ClearState()
 	{
 		groundContactCount = steepContactCount = 0;
-		contactNormal = steepNormal = Vector3.zero;
+		contactNormal = steepNormal = connectionVelocity = Vector3.zero;
+		previousConnectedBody = connectedBody;
+		connectedBody = null;
 	}
 	void UpdateState()
 	{
@@ -135,6 +144,26 @@ public class SphereController : MonoBehaviour
 		{
 			contactNormal = upAxis;
 		}
+		if (connectedBody)
+		{
+			if (connectedBody.isKinematic || connectedBody.mass >= body.mass)
+			{
+				UpdateConnectionState();
+			}
+		}
+	}
+	void UpdateConnectionState()
+	{
+		if (connectedBody == previousConnectedBody)
+		{
+			Vector3 connectionMovement =
+				connectedBody.transform.TransformPoint(connectionLocalPosition) - connectionWorldPosition;
+			connectionVelocity = connectionMovement / Time.deltaTime;
+		}
+		connectionWorldPosition = body.position;
+		connectionLocalPosition = connectedBody.transform.InverseTransformPoint(
+			connectionWorldPosition
+		);
 	}
 	void Jump(Vector3 gravity)
 	{
@@ -197,11 +226,16 @@ public class SphereController : MonoBehaviour
 			{
 				groundContactCount += 1;
 				contactNormal += normal;
+				connectedBody = collision.rigidbody;
 			}
 			else if (upDot > -0.01f)
 			{
 				steepContactCount += 1;
 				steepNormal += normal;
+				if (groundContactCount == 0)
+				{
+					connectedBody = collision.rigidbody;
+				}
 			}
 		}
 	}
@@ -215,8 +249,9 @@ public class SphereController : MonoBehaviour
 		Vector3 xAxis = ProjectDirectionOnPlane(rightAxis, contactNormal);
 		Vector3 zAxis = ProjectDirectionOnPlane(forwardAxis, contactNormal);
 
-		float currentX = Vector3.Dot(velocity, xAxis);
-		float currentZ = Vector3.Dot(velocity, zAxis);
+		Vector3 relativeVelocity = velocity - connectionVelocity;
+		float currentX = Vector3.Dot(relativeVelocity, xAxis);
+		float currentZ = Vector3.Dot(relativeVelocity, zAxis);
 
 		float acceleration = OnGround ? maxAcceleration : maxAirAcceleration;
 		float maxSpeedChange = acceleration * Time.deltaTime;
@@ -255,6 +290,7 @@ public class SphereController : MonoBehaviour
 		{
 			velocity = (velocity - hit.normal * dot).normalized * speed;
 		}
+		connectedBody = hit.rigidbody;
 		return true;
 	}
 	bool CheckSteepContacts()
