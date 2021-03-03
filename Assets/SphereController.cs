@@ -49,6 +49,8 @@ public class SphereController : MonoBehaviour
 
 	Vector3 upAxis, rightAxis, forwardAxis;
 
+	Quaternion lastRotation;
+
 	bool desiredJump, desiresClimbing;
 
 	Vector3 contactNormal, steepNormal, climbNormal, lastClimbNormal;
@@ -113,6 +115,7 @@ public class SphereController : MonoBehaviour
 		Vector3 gravity = CustomGravity.GetGravity(body.position, out upAxis);
 		UpdateState();
 		AdjustVelocity();
+		AdjustRotation();
 
 		if (desiredJump)
 		{
@@ -308,6 +311,22 @@ public class SphereController : MonoBehaviour
 			Mathf.MoveTowards(currentZ, playerInput.y * speed, maxSpeedChange);
 
 		velocity += xAxis * (newX - currentX) + zAxis * (newZ - currentZ);
+	}
+	void AdjustRotation()
+	{
+		if (body.velocity.magnitude > 0.1f)
+		{
+			Vector3 forward = new Vector3(body.velocity.x, body.velocity.y, body.velocity.z);
+			Quaternion forwardlook = Quaternion.LookRotation(forward, upAxis);
+			transform.rotation = Quaternion.RotateTowards(body.rotation, forwardlook, 2f);
+			lastRotation = transform.rotation;
+		}
+		else
+		{
+			transform.rotation = lastRotation;
+		}
+		
+
 	}
 
 	void Jump(Vector3 gravity)
