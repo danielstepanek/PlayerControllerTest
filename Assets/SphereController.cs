@@ -317,8 +317,8 @@ public class SphereController : MonoBehaviour
 		if (body.velocity.magnitude > 0.1f)
 		{
 			Vector3 forward = new Vector3(body.velocity.x, body.velocity.y, body.velocity.z);
-			Quaternion forwardlook = Quaternion.LookRotation(forward, upAxis);
-			transform.rotation = Quaternion.RotateTowards(body.rotation, forwardlook, 2f);
+			Quaternion forwardlook = Quaternion.LookRotation(forward, contactNormal);
+			transform.rotation = Quaternion.RotateTowards(body.rotation, forwardlook, 1.5f);
 			lastRotation = transform.rotation;
 		}
 		else
