@@ -36,9 +36,6 @@ public class SphereController : MonoBehaviour
 	[SerializeField]
 	LayerMask probeMask = -1, stairsMask = -1, climbMask = -1;
 
-	[SerializeField]
-	Material normalMaterial = default, climbingMaterial = default;
-
 	Rigidbody body, connectedBody, previousConnectedBody;
 
 	Vector2 playerInput;
@@ -106,8 +103,6 @@ public class SphereController : MonoBehaviour
 
 		desiredJump |= Input.GetButtonDown("Jump");
 		desiresClimbing = Input.GetButton("Climb");
-
-		meshRenderer.material = Climbing ? climbingMaterial : normalMaterial;
 	}
 
 	void FixedUpdate()
@@ -162,9 +157,7 @@ public class SphereController : MonoBehaviour
 		stepsSinceLastGrounded += 1;
 		stepsSinceLastJump += 1;
 		velocity = body.velocity;
-		if (
-			CheckClimbing() || OnGround || SnapToGround() || CheckSteepContacts()
-		)
+		if (CheckClimbing() || OnGround || SnapToGround() || CheckSteepContacts())
 		{
 			stepsSinceLastGrounded = 0;
 			if (stepsSinceLastJump > 1)
@@ -280,6 +273,9 @@ public class SphereController : MonoBehaviour
 
 	void AdjustVelocity()
 	{
+        print("Ground count: " + groundContactCount);
+		print("Climb count: " + climbContactCount);
+		print("steep count: " + steepContactCount);
 		float acceleration, speed;
 		Vector3 xAxis, zAxis;
 		if (Climbing)
@@ -402,7 +398,7 @@ public class SphereController : MonoBehaviour
 					}
 				}
 				if (
-					desiresClimbing && upDot >= minClimbDotProduct &&
+					upDot >= minClimbDotProduct &&
 					(climbMask & (1 << layer)) != 0
 				)
 				{
