@@ -7,7 +7,7 @@ public class SphereController : MonoBehaviour
 	Transform playerInputSpace = default;
 
 	[SerializeField, Range(0f, 100f)]
-	float maxSpeed = 10f, maxClimbSpeed = 4f;
+	float maxSpeed = 10f, maxClimbSpeed = 4f, maxFlySpeed;
 
 	[SerializeField, Range(0f, 100f)]
 	float
@@ -31,14 +31,14 @@ public class SphereController : MonoBehaviour
 	float maxSnapSpeed = 100f;
 
 	[SerializeField, Min(0f)]
-	float probeDistance = 1f;
+	float probeDistance = .1f;
 
 	[SerializeField]
 	LayerMask probeMask = -1, stairsMask = -1, climbMask = -1;
 
 	Rigidbody body, connectedBody, previousConnectedBody;
 
-	Vector2 playerInput;
+	Vector3 playerInput;
 
 	Vector3 velocity, connectionVelocity;
 
@@ -68,6 +68,8 @@ public class SphereController : MonoBehaviour
 
 	MeshRenderer meshRenderer;
 
+	public bool flying;
+
 	void OnValidate()
 	{
 		minGroundDotProduct = Mathf.Cos(maxGroundAngle * Mathf.Deg2Rad);
@@ -86,8 +88,10 @@ public class SphereController : MonoBehaviour
 	void Update()
 	{
 		playerInput.x = Input.GetAxis("Horizontal");
-		playerInput.y = Input.GetAxis("Vertical");
-		playerInput = Vector2.ClampMagnitude(playerInput, 1f);
+		playerInput.z = Input.GetAxis("Vertical");
+		playerInput.y = Input.GetAxis("Fly");
+
+		playerInput = Vector3.ClampMagnitude(playerInput, 1f);
 
 		if (playerInputSpace)
 		{
@@ -122,6 +126,10 @@ public class SphereController : MonoBehaviour
 		{
 			velocity -=
 				contactNormal * (maxClimbAcceleration * 0.9f * Time.deltaTime);
+		}
+		if (flying)
+		{
+			velocity = Vector3.MoveTowards(velocity, Vector3.zero, .6f * Time.deltaTime);
 		}
 		else if (OnGround && velocity.sqrMagnitude < 0.01f)
 		{
@@ -159,6 +167,7 @@ public class SphereController : MonoBehaviour
 		velocity = body.velocity;
 		if (CheckClimbing() || OnGround || SnapToGround() || CheckSteepContacts())
 		{
+			flying = false;
 			stepsSinceLastGrounded = 0;
 			if (stepsSinceLastJump > 1)
 			{
@@ -171,6 +180,7 @@ public class SphereController : MonoBehaviour
 		}
 		else
 		{
+			flying = true;
 			contactNormal = upAxis;
 		}
 
@@ -229,16 +239,17 @@ public class SphereController : MonoBehaviour
 		{
 			return false;
 		}
-		if (!Physics.Raycast(
-			body.position, -upAxis, out RaycastHit hit,
-			probeDistance, probeMask
-		))
+		if (!Physics.Raycast(body.position, -upAxis, out RaycastHit hit, probeDistance, probeMask))
 		{
 			return false;
 		}
 
 		float upDot = Vector3.Dot(upAxis, hit.normal);
 		if (upDot < GetMinDot(hit.collider.gameObject.layer))
+		{
+			return false;
+		}
+		if (flying)
 		{
 			return false;
 		}
@@ -273,17 +284,21 @@ public class SphereController : MonoBehaviour
 
 	void AdjustVelocity()
 	{
-        print("Ground count: " + groundContactCount);
-		print("Climb count: " + climbContactCount);
-		print("steep count: " + steepContactCount);
 		float acceleration, speed;
-		Vector3 xAxis, zAxis;
+		Vector3 xAxis, zAxis, yAxis;
 		if (Climbing)
 		{
 			acceleration = maxClimbAcceleration;
 			speed = maxClimbSpeed;
 			xAxis = Vector3.Cross(contactNormal, upAxis);
 			zAxis = upAxis;
+		}
+		else if (flying)
+		{
+			acceleration = OnGround ? maxAcceleration : maxAirAcceleration;
+			speed = maxFlySpeed;
+			xAxis = rightAxis;
+			zAxis = forwardAxis;
 		}
 		else
 		{
@@ -294,19 +309,24 @@ public class SphereController : MonoBehaviour
 		}
 		xAxis = ProjectDirectionOnPlane(xAxis, contactNormal);
 		zAxis = ProjectDirectionOnPlane(zAxis, contactNormal);
+		yAxis = upAxis;
 
 		Vector3 relativeVelocity = velocity - connectionVelocity;
 		float currentX = Vector3.Dot(relativeVelocity, xAxis);
 		float currentZ = Vector3.Dot(relativeVelocity, zAxis);
+		float currentY = Vector3.Dot(relativeVelocity, yAxis);
 
 		float maxSpeedChange = acceleration * Time.deltaTime;
 
 		float newX =
 			Mathf.MoveTowards(currentX, playerInput.x * speed, maxSpeedChange);
 		float newZ =
-			Mathf.MoveTowards(currentZ, playerInput.y * speed, maxSpeedChange);
-
-		velocity += xAxis * (newX - currentX) + zAxis * (newZ - currentZ);
+			Mathf.MoveTowards(currentZ, playerInput.z * speed, maxSpeedChange);
+		float newY =
+			Mathf.MoveTowards(currentY, playerInput.y * speed, maxSpeedChange);
+		
+		velocity += xAxis * (newX - currentX) + zAxis * (newZ - currentZ) + yAxis * (newY - currentY);
+		print(velocity);
 	}
 	void AdjustRotation()
 	{
@@ -337,21 +357,12 @@ public class SphereController : MonoBehaviour
 			jumpDirection = steepNormal;
 			jumpPhase = 0;
 		}
-		else if (maxAirJumps > 0 && jumpPhase <= maxAirJumps)
-		{
-			if (jumpPhase == 0)
-			{
-				jumpPhase = 1;
-			}
-			jumpDirection = contactNormal;
-		}
 		else
 		{
 			return;
 		}
 
 		stepsSinceLastJump = 0;
-		jumpPhase += 1;
 		float jumpSpeed = Mathf.Sqrt(2f * gravity.magnitude * jumpHeight);
 		jumpDirection = (jumpDirection + upAxis).normalized;
 		float alignedSpeed = Vector3.Dot(velocity, jumpDirection);
