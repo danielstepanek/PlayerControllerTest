@@ -83,7 +83,6 @@ public class PlayerController : MonoBehaviour
 		else
 		{
 			playerInput.y = 0f;
-
 		}
         Vector3.ClampMagnitude(playerInput, 1f);
     }
