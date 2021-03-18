@@ -7,13 +7,10 @@ public class SphereController : MonoBehaviour
 	Transform playerInputSpace = default;
 
 	[SerializeField, Range(0f, 100f)]
-	float maxSpeed = 10f, maxClimbSpeed = 4f;
+	float maxSpeed = 10f;
 
 	[SerializeField, Range(0f, 100f)]
-	float
-		maxAcceleration = 10f,
-		maxAirAcceleration = 1f,
-		maxClimbAcceleration = 40f;
+	float maxAcceleration = 10f, maxAirAcceleration = 1f;
 
 	[SerializeField, Range(0f, 10f)]
 	float jumpHeight = 2f;
@@ -24,69 +21,58 @@ public class SphereController : MonoBehaviour
 	[SerializeField, Range(0, 90)]
 	float maxGroundAngle = 25f, maxStairsAngle = 50f;
 
-	[SerializeField, Range(90, 170)]
-	float maxClimbAngle = 140f;
-
 	[SerializeField, Range(0f, 100f)]
 	float maxSnapSpeed = 100f;
 
 	[SerializeField, Min(0f)]
-	float probeDistance = 1f;
+	float probeDistance = .2f;
 
 	[SerializeField]
-	LayerMask probeMask = -1, stairsMask = -1, climbMask = -1;
-
-	[SerializeField]
-	Material normalMaterial = default, climbingMaterial = default;
+	LayerMask probeMask = -1, stairsMask = -1;
 
 	Rigidbody body, connectedBody, previousConnectedBody;
 
-	Vector2 playerInput;
-
-	Vector3 velocity, connectionVelocity;
+	Vector3 velocity, desiredVelocity, connectionVelocity;
 
 	Vector3 connectionWorldPosition, connectionLocalPosition;
 
 	Vector3 upAxis, rightAxis, forwardAxis;
 
-	bool desiredJump, desiresClimbing;
+	bool desiredFlying;
 
-	Vector3 contactNormal, steepNormal, climbNormal, lastClimbNormal;
+	Vector3 contactNormal, steepNormal;
 
-	int groundContactCount, steepContactCount, climbContactCount;
+	int groundContactCount, steepContactCount;
 
 	bool OnGround => groundContactCount > 0;
 
 	bool OnSteep => steepContactCount > 0;
 
-	bool Climbing => climbContactCount > 0 && stepsSinceLastJump > 2;
-
 	int jumpPhase;
 
-	float minGroundDotProduct, minStairsDotProduct, minClimbDotProduct;
+	float minGroundDotProduct, minStairsDotProduct;
 
-	int stepsSinceLastGrounded, stepsSinceLastJump;
+	int stepsSinceLastGrounded, stepsSinceLastTakeoff;
+
 	Quaternion lastRotation;
-
-	MeshRenderer meshRenderer;
+	[SerializeField] bool flying;
 
 	void OnValidate()
 	{
 		minGroundDotProduct = Mathf.Cos(maxGroundAngle * Mathf.Deg2Rad);
 		minStairsDotProduct = Mathf.Cos(maxStairsAngle * Mathf.Deg2Rad);
-		minClimbDotProduct = Mathf.Cos(maxClimbAngle * Mathf.Deg2Rad);
 	}
 
 	void Awake()
 	{
 		body = GetComponent<Rigidbody>();
 		body.useGravity = false;
-		meshRenderer = GetComponent<MeshRenderer>();
 		OnValidate();
 	}
 
 	void Update()
 	{
+		Vector2 playerInput;
 		playerInput.x = Input.GetAxis("Horizontal");
 		playerInput.y = Input.GetAxis("Vertical");
 		playerInput = Vector2.ClampMagnitude(playerInput, 1f);
@@ -102,11 +88,10 @@ public class SphereController : MonoBehaviour
 			rightAxis = ProjectDirectionOnPlane(Vector3.right, upAxis);
 			forwardAxis = ProjectDirectionOnPlane(Vector3.forward, upAxis);
 		}
+		desiredVelocity =
+			new Vector3(playerInput.x, 0f, playerInput.y) * maxSpeed;
 
-		desiredJump |= Input.GetButtonDown("Jump");
-		desiresClimbing = Input.GetButton("Climb");
-
-		meshRenderer.material = Climbing ? climbingMaterial : normalMaterial;
+		desiredFlying |= Input.GetButtonDown("Jump");
 	}
 
 	void FixedUpdate()
@@ -116,42 +101,30 @@ public class SphereController : MonoBehaviour
 		AdjustVelocity();
 		AdjustRotation();
 
-		if (desiredJump)
+		if (desiredFlying)
 		{
-			desiredJump = false;
-			Jump(gravity);
+			desiredFlying = false;
+			BeginFlying(gravity);
 		}
+		else if (flying)
+		{
+			velocity = Vector3.MoveTowards(velocity, Vector3.zero, 5f * Time.deltaTime);
 
-		if (Climbing)
-		{
-			velocity -=
-				contactNormal * (maxClimbAcceleration * 0.9f * Time.deltaTime);
-		}
-		else if (OnGround && velocity.sqrMagnitude < 0.01f)
-		{
-			velocity +=
-				contactNormal *
-				(Vector3.Dot(gravity, contactNormal) * Time.deltaTime);
-		}
-		else if (desiresClimbing && OnGround)
-		{
-			velocity +=
-				(gravity - contactNormal * (maxClimbAcceleration * 0.9f)) *
-				Time.deltaTime;
 		}
 		else
 		{
-			velocity += gravity * Time.deltaTime;
+			velocity -= contactNormal * (maxAcceleration * Time.deltaTime);
 		}
+
+		
 		body.velocity = velocity;
 		ClearState();
 	}
 
 	void ClearState()
 	{
-		groundContactCount = steepContactCount = climbContactCount = 0;
-		contactNormal = steepNormal = climbNormal = Vector3.zero;
-		connectionVelocity = Vector3.zero;
+		groundContactCount = steepContactCount = 0;
+		contactNormal = steepNormal = connectionVelocity = Vector3.zero;
 		previousConnectedBody = connectedBody;
 		connectedBody = null;
 	}
@@ -159,20 +132,16 @@ public class SphereController : MonoBehaviour
 	void UpdateState()
 	{
 		stepsSinceLastGrounded += 1;
-		stepsSinceLastJump += 1;
+		stepsSinceLastTakeoff += 1;
 		velocity = body.velocity;
-		if (
-			CheckClimbing() || OnGround || SnapToGround() || CheckSteepContacts()
-		)
+		if (OnGround || SnapToGround() || CheckSteepContacts())
 		{
 			stepsSinceLastGrounded = 0;
-			if (stepsSinceLastJump > 1)
-			{
-				jumpPhase = 0;
-			}
+			
 			if (groundContactCount > 1)
 			{
 				contactNormal.Normalize();
+				
 			}
 		}
 		else
@@ -204,29 +173,9 @@ public class SphereController : MonoBehaviour
 		);
 	}
 
-	bool CheckClimbing()
-	{
-		if (Climbing)
-		{
-			if (climbContactCount > 1)
-			{
-				climbNormal.Normalize();
-				float upDot = Vector3.Dot(upAxis, climbNormal);
-				if (upDot >= minGroundDotProduct)
-				{
-					climbNormal = lastClimbNormal;
-				}
-			}
-			groundContactCount = 1;
-			contactNormal = climbNormal;
-			return true;
-		}
-		return false;
-	}
-
 	bool SnapToGround()
 	{
-		if (stepsSinceLastGrounded > 1 || stepsSinceLastJump <= 2)
+		if (stepsSinceLastGrounded > 1 || stepsSinceLastTakeoff <= 5)
 		{
 			return false;
 		}
@@ -235,10 +184,7 @@ public class SphereController : MonoBehaviour
 		{
 			return false;
 		}
-		if (!Physics.Raycast(
-			body.position, -upAxis, out RaycastHit hit,
-			probeDistance, probeMask
-		))
+		if (!Physics.Raycast(body.position, -upAxis, out RaycastHit hit,probeDistance, probeMask))
 		{
 			return false;
 		}
@@ -279,35 +225,20 @@ public class SphereController : MonoBehaviour
 
 	void AdjustVelocity()
 	{
-		float acceleration, speed;
-		Vector3 xAxis, zAxis;
-		if (Climbing)
-		{
-			acceleration = maxClimbAcceleration;
-			speed = maxClimbSpeed;
-			xAxis = Vector3.Cross(contactNormal, upAxis);
-			zAxis = upAxis;
-		}
-		else
-		{
-			acceleration = OnGround ? maxAcceleration : maxAirAcceleration;
-			speed = OnGround && desiresClimbing ? maxClimbSpeed : maxSpeed;
-			xAxis = rightAxis;
-			zAxis = forwardAxis;
-		}
-		xAxis = ProjectDirectionOnPlane(xAxis, contactNormal);
-		zAxis = ProjectDirectionOnPlane(zAxis, contactNormal);
+		Vector3 xAxis = ProjectDirectionOnPlane(rightAxis, contactNormal);
+		Vector3 zAxis = ProjectDirectionOnPlane(forwardAxis, contactNormal);
 
 		Vector3 relativeVelocity = velocity - connectionVelocity;
 		float currentX = Vector3.Dot(relativeVelocity, xAxis);
 		float currentZ = Vector3.Dot(relativeVelocity, zAxis);
 
+		float acceleration = OnGround ? maxAcceleration : maxAirAcceleration;
 		float maxSpeedChange = acceleration * Time.deltaTime;
 
 		float newX =
-			Mathf.MoveTowards(currentX, playerInput.x * speed, maxSpeedChange);
+			Mathf.MoveTowards(currentX, desiredVelocity.x, maxSpeedChange);
 		float newZ =
-			Mathf.MoveTowards(currentZ, playerInput.y * speed, maxSpeedChange);
+			Mathf.MoveTowards(currentZ, desiredVelocity.z, maxSpeedChange);
 
 		velocity += xAxis * (newX - currentX) + zAxis * (newZ - currentZ);
 	}
@@ -327,33 +258,20 @@ public class SphereController : MonoBehaviour
 
 
 	}
-	void Jump(Vector3 gravity)
+
+	void BeginFlying(Vector3 gravity)
 	{
 		Vector3 jumpDirection;
 		if (OnGround)
 		{
 			jumpDirection = contactNormal;
 		}
-		else if (OnSteep)
-		{
-			jumpDirection = steepNormal;
-			jumpPhase = 0;
-		}
-		else if (maxAirJumps > 0 && jumpPhase <= maxAirJumps)
-		{
-			if (jumpPhase == 0)
-			{
-				jumpPhase = 1;
-			}
-			jumpDirection = contactNormal;
-		}
 		else
 		{
 			return;
 		}
-
-		stepsSinceLastJump = 0;
-		jumpPhase += 1;
+		stepsSinceLastTakeoff = 0;
+		
 		float jumpSpeed = Mathf.Sqrt(2f * gravity.magnitude * jumpHeight);
 		jumpDirection = (jumpDirection + upAxis).normalized;
 		float alignedSpeed = Vector3.Dot(velocity, jumpDirection);
@@ -362,6 +280,7 @@ public class SphereController : MonoBehaviour
 			jumpSpeed = Mathf.Max(jumpSpeed - alignedSpeed, 0f);
 		}
 		velocity += jumpDirection * jumpSpeed;
+		flying = true;
 	}
 
 	void OnCollisionEnter(Collision collision)
@@ -376,8 +295,7 @@ public class SphereController : MonoBehaviour
 
 	void EvaluateCollision(Collision collision)
 	{
-		int layer = collision.gameObject.layer;
-		float minDot = GetMinDot(layer);
+		float minDot = GetMinDot(collision.gameObject.layer);
 		for (int i = 0; i < collision.contactCount; i++)
 		{
 			Vector3 normal = collision.GetContact(i).normal;
@@ -388,25 +306,12 @@ public class SphereController : MonoBehaviour
 				contactNormal += normal;
 				connectedBody = collision.rigidbody;
 			}
-			else
+			else if (upDot > -0.01f)
 			{
-				if (upDot > -0.01f)
+				steepContactCount += 1;
+				steepNormal += normal;
+				if (groundContactCount == 0)
 				{
-					steepContactCount += 1;
-					steepNormal += normal;
-					if (groundContactCount == 0)
-					{
-						connectedBody = collision.rigidbody;
-					}
-				}
-				if (
-					desiresClimbing && upDot >= minClimbDotProduct &&
-					(climbMask & (1 << layer)) != 0
-				)
-				{
-					climbContactCount += 1;
-					climbNormal += normal;
-					lastClimbNormal = normal;
 					connectedBody = collision.rigidbody;
 				}
 			}

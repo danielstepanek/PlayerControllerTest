@@ -1,14 +1,15 @@
 ﻿using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
-public class CustomGravityRigidBody : MonoBehaviour
+public class CustomGravityRigidbody : MonoBehaviour
 {
-
-	Rigidbody body;
-	float floatDelay;
 
 	[SerializeField]
 	bool floatToSleep = false;
+
+	Rigidbody body;
+
+	float floatDelay;
 
 	void Awake()
 	{
@@ -18,28 +19,29 @@ public class CustomGravityRigidBody : MonoBehaviour
 
 	void FixedUpdate()
 	{
-		if (body.IsSleeping())
+		if (floatToSleep)
 		{
-			floatDelay = 0f;
-			return;
-		}
+			if (body.IsSleeping())
+			{
+				floatDelay = 0f;
+				return;
+			}
 
-		if (body.velocity.sqrMagnitude < 0.0001f)
-		{
-			if (floatToSleep)
+			if (body.velocity.sqrMagnitude < 0.0001f)
 			{
 				floatDelay += Time.deltaTime;
 				if (floatDelay >= 1f)
 				{
 					return;
 				}
-				else
-				{
-					floatDelay = 0f;
-				}
+			}
+			else
+			{
+				floatDelay = 0f;
 			}
 		}
 		body.AddForce(
-			CustomGravity.GetGravity(body.position), ForceMode.Acceleration);
+			CustomGravity.GetGravity(body.position), ForceMode.Acceleration
+		);
 	}
 }
