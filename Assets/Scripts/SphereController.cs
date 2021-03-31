@@ -9,6 +9,9 @@ public class SphereController : MonoBehaviour
 	[SerializeField, Range(0f, 100f)]
 	float maxSpeed = 10f, maxAirSpeed = 10f;
 
+	[SerializeField, Range(0f, 5f)]
+	float flightSmoothing;
+
 	[SerializeField, Range(0f, 100f)]
 	float rotateSpeed = 10f, rotateSpeedAir = 10f;
 
@@ -32,6 +35,7 @@ public class SphereController : MonoBehaviour
 
 	[SerializeField]
 	LayerMask probeMask = -1, stairsMask = -1;
+
 
 	Rigidbody body, connectedBody, previousConnectedBody;
 
@@ -57,8 +61,12 @@ public class SphereController : MonoBehaviour
 
 	int stepsSinceLastGrounded, stepsSinceLastTakeoff;
 
+	Vector3 playerInputUp;
+
 	Quaternion lastRotation;
 	[SerializeField] bool flying;
+
+	LegAnimator legAnimator;
 
 	void OnValidate()
 	{
@@ -69,6 +77,7 @@ public class SphereController : MonoBehaviour
 	void Awake()
 	{
 		body = GetComponent<Rigidbody>();
+		legAnimator = FindObjectOfType<LegAnimator>();
 		body.useGravity = false;
 		OnValidate();
 	}
@@ -86,6 +95,8 @@ public class SphereController : MonoBehaviour
 			rightAxis = ProjectDirectionOnPlane(playerInputSpace.right, upAxis);
 			forwardAxis =
 				ProjectDirectionOnPlane(playerInputSpace.forward, upAxis);
+			
+		
 		}
 		else
 		{
@@ -113,8 +124,7 @@ public class SphereController : MonoBehaviour
 		}
 		else if (flying)
 		{
-			velocity = Vector3.MoveTowards(velocity, Vector3.zero, 5f * Time.deltaTime);
-
+			velocity = Vector3.MoveTowards(velocity, Vector3.zero, flightSmoothing * Time.deltaTime);
 		}
 		else
 		{
@@ -262,6 +272,11 @@ public class SphereController : MonoBehaviour
 		float speed = flying ? rotateSpeedAir : rotateSpeed;
 		if (body.velocity.magnitude > 0.1f)
 		{
+
+			// need to rotate body and sphere different, to use sphere as a base for body rotation
+			// find dot product of sphere forward and body forward
+			// if less than .7, clamp the body forward.
+
 			Vector3 forward = new Vector3(body.velocity.x, body.velocity.y, body.velocity.z);
 			Quaternion forwardlook = Quaternion.LookRotation(forward, contactNormal);
 			transform.rotation = Quaternion.RotateTowards(body.rotation, forwardlook, speed);
@@ -321,6 +336,11 @@ public class SphereController : MonoBehaviour
 				groundContactCount += 1;
 				contactNormal += normal;
 				connectedBody = collision.rigidbody;
+				if(stepsSinceLastTakeoff > 10)
+				{
+					flying = false;
+				}
+				
 			}
 			else if (upDot > -0.01f)
 			{
@@ -347,5 +367,13 @@ public class SphereController : MonoBehaviour
 	public bool GetFlying()
 	{
 		return flying;
+	}
+	public int GetStepsSinceLastTakeoff()
+	{
+		return stepsSinceLastTakeoff;
+	}
+	public int GetStepsSinceLastGrounded()
+	{
+		return stepsSinceLastGrounded;
 	}
 }

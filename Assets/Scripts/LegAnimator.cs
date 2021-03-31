@@ -1,16 +1,17 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Animations.Rigging;
 
 public class LegAnimator : MonoBehaviour
 {
     public Transform[] legTargets;
+    public Transform[] legTargetsFlying;
     public float stepSize = 1f;
-    public int smoothness = 1;
+    public float smoothness = 1f;
     public float stepHeight = 0.1f;
-    public bool bodyOrientation = true;
 
-    private float raycastRange = .4f;
+    private float raycastRange = .2f;
     private Vector3[] defaultLegPositions;
     private Vector3[] lastLegPositions;
     private Vector3 lastBodyUp;
@@ -21,11 +22,20 @@ public class LegAnimator : MonoBehaviour
     private Vector3 lastVelocity;
     private Vector3 lastBodyPos;
 
-    private float velocityMultiplier = 15f;
+    public float velocityOffset = 15f;
 
     public LayerMask IgnoreMe;
 
     [SerializeField] SphereController sphereController;
+    [SerializeField] Animator animator;
+    [SerializeField] Collider extendedCollider;
+    [SerializeField] Rig rigWalking;
+    [SerializeField] Rig rigFlying;
+
+    [SerializeField] float xScale = .5f;
+    [SerializeField] float yScale = .5f;
+
+    bool isSlowed = true;
 
     static Vector3[] MatchToSurfaceFromAbove(Vector3 point, float halfRange, Vector3 up, LayerMask ignoreLayer)
     {
@@ -77,15 +87,66 @@ public class LegAnimator : MonoBehaviour
         legMoving[0] = false;
     }
 
+	private void Update()
+	{
+        bool isFlying = sphereController.GetFlying();
+        if (isFlying)
+        {
+            animator.SetBool("isFlying", true);
+            return;
+        }
+        animator.SetBool("isFlying", false);
+    }
 
-    void FixedUpdate()
+	void FixedUpdate()
     {
         
         bool isFlying = sphereController.GetFlying();
-        if (isFlying)
+		if (isFlying)
 		{
-            return;
-		}
+            smoothness = 1f;
+            velocityOffset = 1f;
+            rigWalking.weight = Mathf.MoveTowards(rigWalking.weight, 0f, .1f);
+            rigFlying.weight = Mathf.MoveTowards(rigFlying.weight, 1f, .1f);
+
+            for (int i = 0; i < nbLegs; i++)
+            {
+                float translate;
+                Vector3 pos = legTargetsFlying[i].localPosition;
+                if (pos.x > 0)
+				{
+                    translate = .2f * Mathf.PerlinNoise(Time.time * xScale + i * .5f, .5f) + .3f;
+                }
+				else
+				{
+                    translate = -.2f * Mathf.PerlinNoise(Time.time * xScale + i * .5f, .5f) - .3f;
+                }
+                float height = .2f * Mathf.PerlinNoise(Time.time * yScale + i, 0.0f);
+                
+                pos.y = height - .4f;
+                pos.x = translate;
+                
+                legTargetsFlying[i].localPosition = pos;
+            }
+
+
+        }
+        else if (!isFlying && smoothness < 5f)
+        {
+            smoothness = Mathf.MoveTowards(smoothness, 5f, .05f);
+            velocityOffset = Mathf.MoveTowards(velocityOffset, 15f, .2f);
+
+            rigWalking.weight = Mathf.MoveTowards(rigWalking.weight, 1f, .1f);
+            rigFlying.weight = Mathf.MoveTowards(rigFlying.weight, 0f, .1f);
+        }
+
+
+        
+
+
+
+
+
         velocity = transform.position - lastBodyPos;
         velocity = (velocity + smoothness * lastVelocity) / (smoothness + 1f);
 
@@ -102,7 +163,7 @@ public class LegAnimator : MonoBehaviour
         {
             desiredPositions[i] = transform.TransformPoint(defaultLegPositions[i]);
 
-            float distance = Vector3.ProjectOnPlane(desiredPositions[i] + velocity * velocityMultiplier - lastLegPositions[i], transform.up).magnitude;
+            float distance = Vector3.ProjectOnPlane(desiredPositions[i] + velocity * velocityOffset - lastLegPositions[i], transform.up).magnitude;
             if (distance > maxDistance)
             {
                 maxDistance = distance;
@@ -112,25 +173,15 @@ public class LegAnimator : MonoBehaviour
         for (int i = 0; i < nbLegs; ++i)
             if (i != indexToMove)
                 legTargets[i].position = lastLegPositions[i];
-
-        if (indexToMove != -1 && !legMoving[0])
+        if (indexToMove != -1 && !legMoving[indexToMove])
         {
-            Vector3 targetPoint = desiredPositions[indexToMove] + Mathf.Clamp(velocity.magnitude * velocityMultiplier, 0.0f, 1.5f) * (desiredPositions[indexToMove] - legTargets[indexToMove].position) + velocity * velocityMultiplier;
+            Vector3 targetPoint = desiredPositions[indexToMove] + Mathf.Clamp(velocity.magnitude * velocityOffset, 0.0f, 1.5f) * (desiredPositions[indexToMove] - legTargets[indexToMove].position) + velocity * velocityOffset;
             Vector3[] positionAndNormal = MatchToSurfaceFromAbove(targetPoint, raycastRange, transform.up, IgnoreMe);
             legMoving[0] = true;
             StartCoroutine(PerformStep(indexToMove, positionAndNormal[0]));
         }
 
         lastBodyPos = transform.position;
-        if (nbLegs > 3 && bodyOrientation)
-        {
-            Vector3 v1 = legTargets[0].position - legTargets[1].position;
-            Vector3 v2 = legTargets[2].position - legTargets[3].position;
-            Vector3 normal = Vector3.Cross(v1, v2).normalized;
-            Vector3 up = Vector3.Lerp(lastBodyUp, normal, 1f / (float)(smoothness + 1));
-            transform.up = up;
-            lastBodyUp = up;
-        }
     }
 
     private void OnDrawGizmos()
