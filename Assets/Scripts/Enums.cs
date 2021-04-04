@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public enum LegPosition
+public enum FlowerValue
 {
-	FrontLeft, FrontRight, BackLeft, BackRight
+	Lowest, Low, Medium, High, Highest
 }

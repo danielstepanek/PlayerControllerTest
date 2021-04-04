@@ -56,11 +56,11 @@ Material:
     - _HorizonCloudSize: 5
     - _HorizonCloudStartPosition: 0
     - _HorizonCloudStep: 104
-    - _HorizonExponent: 4.6782904
+    - _HorizonExponent: 4.5734644
     - _HorizonStep: 363
     - _HorizonThickness: 1
     - _MoonGlow: 0.24
-    - _MoonLightIntensity: 0.00021182743
+    - _MoonLightIntensity: 0.00020938113
     - _MoonSize: 0.07
     - _MoonSoftEdge: 0.22
     - _OverheadCloudAltitude: 1000
@@ -87,25 +87,25 @@ Material:
     - _StarsTwinkle1: 6
     - _StarsTwinkle2: 2
     - _SunGlow: 0.45
-    - _SunLightIntensity: 0.8600353
+    - _SunLightIntensity: 0.8116368
     - _SunSize: 0.07
     - _SunSoftEdge: 0.5
     m_Colors:
     - _DetailOverlayTintColor: {r: 1, g: 1, b: 1, a: 1}
-    - _FogColor: {r: 0.87187487, g: 0.8835836, b: 0.8599378, a: 1}
-    - _GroundColor: {r: 0.4695271, g: 0.4625998, b: 0.47601762, a: 1}
+    - _FogColor: {r: 0.8728824, g: 0.867721, b: 0.8399971, a: 1}
+    - _GroundColor: {r: 0.46404132, g: 0.45586696, b: 0.47170028, a: 1}
     - _HorizonCloudColor: {r: 1, g: 1, b: 1, a: 1}
-    - _HorizonColor: {r: 0.87187487, g: 0.8835836, b: 0.8599378, a: 1}
+    - _HorizonColor: {r: 0.8728824, g: 0.867721, b: 0.8399971, a: 1}
     - _MoonColor: {r: 1, g: 1, b: 1, a: 0}
     - _MoonDirection: {r: 0, g: 0, b: 1, a: 0}
     - _MoonLightColor: {r: 0.8431373, g: 0.9843138, b: 1, a: 1}
-    - _OverheadCloudColor: {r: 1, g: 1, b: 1, a: 0.4152041}
-    - _SkyColor: {r: 0.2847699, g: 0.5595484, b: 0.82460177, a: 1}
+    - _OverheadCloudColor: {r: 1, g: 1, b: 1, a: 0.40523374}
+    - _SkyColor: {r: 0.27872443, g: 0.54392195, b: 0.8066128, a: 1}
     - _StarsColor0: {r: 0.96470594, g: 0.9450981, b: 0.76470596, a: 1}
     - _StarsColor1: {r: 1, g: 0.5294118, b: 0.93725497, a: 1}
     - _StarsColor2: {r: 0, g: 0.92549026, b: 1, a: 1}
-    - _SunColor: {r: 0.9716981, g: 0.921754, b: 0.83741325, a: 1}
-    - _SunDirection: {r: 0, g: -0.90315795, b: -0.42930853, a: 0}
+    - _SunColor: {r: 0.9716981, g: 0.921589, b: 0.8368778, a: 1}
+    - _SunDirection: {r: 0, g: -0.8660253, b: -0.5, a: 0}
     - _SunLightColor: {r: 1, g: 0.9921569, b: 0.90196085, a: 1}
 --- !u!114 &11400000
 MonoBehaviour:
